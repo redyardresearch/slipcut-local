@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "id": "tot-money-bonifici-multipli",
+      "label": "tot.money Bonifici Multipli",
+      "description": "CSV formato tot.money a 5 colonne",
+      "links": {
+        "info": {
+          "label": "Prova tot. Apri un conto!",
+          "url": "https://www.tot.money/"
+        }
+      },
+      "columns": [
+        {
+          "header": "Nome Beneficiario",
+          "source": "beneficiaryName"
+        },
+        {
+          "header": "IBAN",
+          "source": "iban"
+        },
+        {
+          "header": "Partita IVA o Codice Fiscale (Opzionale)",
+          "source": "codiceFiscale"
+        },
+        {
+          "header": "Importo",
+          "source": "amount",
+          "format": "decimal-comma"
+        },
+        {
+          "header": "Causale",
+          "source": "remittanceInformation"
+        }
+      ]
+    },
+    {
+      "id": "generic-bulk-transfer",
+      "label": "CSV generico (7 colonne, formato Revolut)",
+      "description": "Formato CSV a 7 colonne utilizzato da diverse piattaforme (ad esempio Revolut Business).",
+      "columns": [
+        {
+          "header": "Name",
+          "source": "beneficiaryName"
+        },
+        {
+          "header": "Recipient type",
+          "source": "recipientType"
+        },
+        {
+          "header": "IBAN",
+          "source": "iban"
+        },
+        {
+          "header": "Recipient bank country",
+          "source": "recipientBankCountry"
+        },
+        {
+          "header": "Currency",
+          "fixed": "EUR"
+        },
+        {
+          "header": "Amount",
+          "source": "amount",
+          "format": "decimal-dot"
+        },
+        {
+          "header": "Payment reference",
+          "source": "remittanceInformation"
+        }
+      ]
+    },
+    {
+      "id": "custom-example-salary-flag",
+      "label": "Esempio con flag stipendio",
+      "description": "Esempio che mostra una flag stipendio fissa",
+      "columns": [
+        {
+          "header": "Beneficiary",
+          "source": "beneficiaryName"
+        },
+        {
+          "header": "IBAN",
+          "source": "iban"
+        },
+        {
+          "header": "Amount",
+          "source": "amount",
+          "format": "decimal-dot"
+        },
+        {
+          "header": "Currency",
+          "fixed": "EUR"
+        },
+        {
+          "header": "Salary",
+          "fixed": "TRUE"
+        },
+        {
+          "header": "Reference",
+          "source": "remittanceInformation"
+        }
+      ]
+    }
+  ]
+}
