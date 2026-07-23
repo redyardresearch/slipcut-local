@@ -1,10 +1,10 @@
 import './style.css';
 import type { PayslipExtraction } from './core/extraction/payslip';
-import type { IbanMappingRow, Pain001DebtorConfig, PaymentRow, PaymentSettings, SplitResult } from './core/types';
+import type { IbanMappingRow, Pain001DebtorConfig, PaymentRow, PaymentSettings, PaymentXmlProfileId, SplitResult } from './core/types';
 import { extractionSummaryToCsv, buildPaymentRows, parseIbanMappingCsv } from './core/payment-export/csv';
 import type { CsvExportTemplate, CsvExportTemplateConfig } from './core/payment-export/exportTemplates';
 import { clearCsvExportTemplatesFromLocalStorage, configToJson, loadCsvExportTemplates, paymentsToTemplatedCsv, saveCsvExportTemplatesToLocalStorage, validateCsvTemplateConfig } from './core/payment-export/exportTemplates';
-import { generatePain001 } from './core/payment-export/pain001';
+import { generatePaymentXml, getPaymentXmlProfile, PAYMENT_XML_PROFILES } from './core/payment-export/pain001';
 import { formatEuro } from './core/extraction/number';
 import { isValidIban } from './core/validation/iban';
 import { downloadBlob, textBlob } from './ui/download';
@@ -30,7 +30,7 @@ app.innerHTML = `
     <div class="header-content">
       <a href="https://redyard.com/" target="_blank" rel="noopener noreferrer" class="brand-link">
         <img class="ry-brand" src="/brand/logo-ry-square.png" alt="Red Yard Research" />
-        <span>SlipCut Local <small>v0.1.0</small></span>
+        <span>SlipCut Local <small>v0.1.1</small></span>
       </a>
       <nav>
         <a href="https://redyard.com/" target="_blank" rel="noopener noreferrer">Red Yard Research</a>
@@ -109,7 +109,7 @@ app.innerHTML = `
       <div class="panel-heading">
         <div>
           <h2>3. Opzione pagamenti</h2>
-          <p>Genera o carica la mappatura Codice Fiscale → IBAN/email, salvala nel browser se vuoi riusarla, poi scegli il formato CSV o genera il PAIN.001. Il paese banca può essere ricavato automaticamente dalle prime due lettere dell'IBAN nelle colonne che lo richiedono.</p>
+          <p>Genera o carica la mappatura Codice Fiscale → IBAN/email, salvala nel browser se vuoi riusarla, poi scegli il formato CSV o genera il file XML PAIN.001/CBI. Il paese banca può essere ricavato automaticamente dalle prime due lettere dell'IBAN nelle colonne che lo richiedono.</p>
         </div>
       </div>
 
@@ -129,50 +129,72 @@ app.innerHTML = `
         </div>
       </div>
 
-      <details class="debtor-details">
-        <summary>Impostazioni azienda e PAIN.001</summary>
-        <div class="payment-grid debtor-grid">
-          <label>Company name<input id="debtorName" type="text" placeholder="Red Yard Research SRL" /></label>
-          <label>Sending IBAN<input id="debtorIban" type="text" placeholder="IT..." /></label>
-          <label>Sending BIC<input id="debtorBic" type="text" placeholder="BIC opzionale" /></label>
-          <label>Data esecuzione<input id="executionDate" type="date" /></label>
-          <label>Message ID<input id="messageId" type="text" /></label>
-          <label>Payment Info ID<input id="paymentInfoId" type="text" /></label>
-        </div>
-        <div class="actions settings-actions">
-          <button id="saveSettingsBtn" class="btn primary" type="button">Salva impostazioni</button>
-          <button id="loadSettingsBtn" class="btn secondary" type="button">Carica impostazioni</button>
-          <button id="clearSettingsBtn" class="btn secondary" type="button">Cancella impostazioni</button>
-        </div>
-        <p id="settingsMessage" class="help"></p>
-      </details>
-
-      <div class="template-box">
-        <div class="template-row">
-          <label for="csvTemplateSelect">Formato CSV pagamenti</label>
-          <select id="csvTemplateSelect"></select>
-          <span id="csvTemplateLinks" class="template-links hidden"></span>
-        </div>
-        <p id="csvTemplateDescription" class="help">Caricamento formati CSV…</p>
-        <details class="template-editor">
-          <summary>Formati CSV personalizzati</summary>
-          <p class="help">Qui puoi anche salvare una configurazione personalizzata nel browser o importarla/esportarla come JSON. Ogni colonna può usare <code>source</code> oppure un valore <code>fixed</code>, per esempio <code>{ "header": "Salary", "fixed": "TRUE" }</code>.</p>
-          <textarea id="csvTemplateEditor" rows="12" spellcheck="false"></textarea>
-          <div class="actions settings-actions">
-            <button id="saveCsvTemplatesBtn" class="btn primary" type="button">Salva formati nel browser</button>
-            <button id="loadCsvTemplatesFileBtn" class="btn secondary" type="button">Carica JSON</button>
-            <button id="exportCsvTemplatesBtn" class="btn secondary" type="button">Esporta JSON</button>
-            <button id="resetCsvTemplatesBtn" class="btn secondary" type="button">Ripristina template predefiniti</button>
-            <input id="csvTemplatesFileInput" type="file" accept="application/json,.json" class="hidden" />
+      <div class="export-card">
+        <div class="export-card-header">
+          <div>
+            <h3>Formati di esportazione</h3>
+            <p class="help">Scegli e configura separatamente il tracciato CSV per l'import massivo o il profilo XML PAIN.001/CBI.</p>
           </div>
-          <p id="csvTemplateMessage" class="help"></p>
-        </details>
+          <div class="export-tabs" role="tablist" aria-label="Formati di esportazione pagamenti">
+            <button id="csvExportTab" class="export-tab active" type="button" role="tab" aria-selected="true" aria-controls="csvExportPanel">CSV</button>
+            <button id="xmlExportTab" class="export-tab" type="button" role="tab" aria-selected="false" aria-controls="xmlExportPanel">XML</button>
+          </div>
+        </div>
+
+        <div id="csvExportPanel" class="export-panel active" role="tabpanel" aria-labelledby="csvExportTab">
+          <div class="format-card">
+            <div class="template-row">
+              <label for="csvTemplateSelect">Formato CSV pagamenti</label>
+              <select id="csvTemplateSelect"></select>
+              <span id="csvTemplateLinks" class="template-links hidden"></span>
+            </div>
+            <p id="csvTemplateDescription" class="help">Caricamento formati CSV…</p>
+            <details class="template-editor">
+              <summary>Formati CSV personalizzati</summary>
+              <p class="help">Qui puoi anche salvare una configurazione personalizzata nel browser o importarla/esportarla come JSON. Ogni colonna può usare <code>source</code> oppure un valore <code>fixed</code>, per esempio <code>{ "header": "Salary", "fixed": "TRUE" }</code>.</p>
+              <textarea id="csvTemplateEditor" rows="12" spellcheck="false"></textarea>
+              <div class="actions settings-actions">
+                <button id="saveCsvTemplatesBtn" class="btn primary" type="button">Salva formati nel browser</button>
+                <button id="loadCsvTemplatesFileBtn" class="btn secondary" type="button">Carica JSON</button>
+                <button id="exportCsvTemplatesBtn" class="btn secondary" type="button">Esporta JSON</button>
+                <button id="resetCsvTemplatesBtn" class="btn secondary" type="button">Ripristina template predefiniti</button>
+                <input id="csvTemplatesFileInput" type="file" accept="application/json,.json" class="hidden" />
+              </div>
+              <p id="csvTemplateMessage" class="help"></p>
+            </details>
+          </div>
+        </div>
+
+        <div id="xmlExportPanel" class="export-panel" role="tabpanel" aria-labelledby="xmlExportTab" hidden>
+          <div class="format-card">
+            <div class="format-row">
+              <label for="xmlProfileSelect">Formato XML pagamenti</label>
+              <select id="xmlProfileSelect"></select>
+            </div>
+            <div class="payment-grid debtor-grid">
+              <label>Company name<input id="debtorName" type="text" placeholder="Red Yard Research SRL" /></label>
+              <label>Sending IBAN<input id="debtorIban" type="text" placeholder="IT..." /></label>
+              <label>Sending BIC<input id="debtorBic" type="text" placeholder="BIC opzionale" /></label>
+              <label>CBI CUC / codice cliente<input id="debtorCuc" type="text" placeholder="Opzionale, richiesto da alcune banche" /></label>
+              <label>ABI banca ordinante<input id="debtorAbi" type="text" placeholder="Opzionale" /></label>
+              <label>Data esecuzione<input id="executionDate" type="date" /></label>
+              <label>Message ID<input id="messageId" type="text" /></label>
+              <label>Payment Info ID<input id="paymentInfoId" type="text" /></label>
+            </div>
+            <div class="actions settings-actions">
+              <button id="saveSettingsBtn" class="btn primary" type="button">Salva impostazioni</button>
+              <button id="loadSettingsBtn" class="btn secondary" type="button">Carica impostazioni</button>
+              <button id="clearSettingsBtn" class="btn secondary" type="button">Cancella impostazioni</button>
+            </div>
+            <p id="settingsMessage" class="help"></p>
+          </div>
+        </div>
       </div>
 
       <div class="actions payment-actions">
         <button id="buildPaymentsBtn" class="btn primary" type="button">Prepara pagamenti</button>
         <button id="downloadPaymentsCsvBtn" class="btn secondary" type="button" disabled>CSV pagamenti</button>
-        <button id="downloadPainBtn" class="btn secondary" type="button" disabled>PAIN.001 XML</button>
+        <button id="downloadPainBtn" class="btn secondary" type="button" disabled>XML pagamenti</button>
       </div>
 
       <div id="paymentMessages" class="messages"></div>
@@ -242,7 +264,7 @@ app.innerHTML = `
 
   <footer>
     <div class="footer-content">
-      <p>© Red Yard Research — SlipCut Local v0.1.0. Elaborazione locale nel browser; nessun upload dei cedolini o degli IBAN. 0 cookie, 0 tracciamento.</p>
+      <p>© Red Yard Research — SlipCut Local v0.1.1. Elaborazione locale nel browser; nessun upload dei cedolini o degli IBAN. 0 cookie, 0 tracciamento.</p>
       <p>Problemi o suggerimenti? Apri una issue su <a href="https://github.com/redyardresearch/slipcut-local" target="_blank" rel="noopener noreferrer">GitHub</a>. Ti piace SlipCut Local e vuoi contattarci per altri progetti? Usa la <a href="https://redyard.com/contatti/" target="_blank" rel="noopener noreferrer">pagina contatti</a> sul sito Red Yard Research.</p>
       <p class="signature">Made in Calabria with ❤️ and 🌶️</p>
     </div>
@@ -287,6 +309,9 @@ const paymentRows = getElement<HTMLTableSectionElement>('paymentRows');
 const debtorName = getElement<HTMLInputElement>('debtorName');
 const debtorIban = getElement<HTMLInputElement>('debtorIban');
 const debtorBic = getElement<HTMLInputElement>('debtorBic');
+const debtorCuc = getElement<HTMLInputElement>('debtorCuc');
+const debtorAbi = getElement<HTMLInputElement>('debtorAbi');
+const xmlProfileSelect = getElement<HTMLSelectElement>('xmlProfileSelect');
 const executionDate = getElement<HTMLInputElement>('executionDate');
 const messageId = getElement<HTMLInputElement>('messageId');
 const paymentInfoId = getElement<HTMLInputElement>('paymentInfoId');
@@ -304,14 +329,34 @@ const exportCsvTemplatesBtn = getElement<HTMLButtonElement>('exportCsvTemplatesB
 const resetCsvTemplatesBtn = getElement<HTMLButtonElement>('resetCsvTemplatesBtn');
 const csvTemplatesFileInput = getElement<HTMLInputElement>('csvTemplatesFileInput');
 const csvTemplateMessage = getElement<HTMLParagraphElement>('csvTemplateMessage');
+const csvExportTab = getElement<HTMLButtonElement>('csvExportTab');
+const xmlExportTab = getElement<HTMLButtonElement>('xmlExportTab');
+const csvExportPanel = getElement<HTMLDivElement>('csvExportPanel');
+const xmlExportPanel = getElement<HTMLDivElement>('xmlExportPanel');
 const downloadCelebrationModal = getElement<HTMLDivElement>('downloadCelebrationModal');
 const closeCelebrationModalBtn = getElement<HTMLButtonElement>('closeCelebrationModalBtn');
 const celebrationContactBtn = getElement<HTMLButtonElement>('celebrationContactBtn');
 const downloadCelebrationMessage = getElement<HTMLParagraphElement>('downloadCelebrationMessage');
 
+initialiseXmlProfileOptions();
 initialiseDefaults();
 loadIbanMappingsFromLocalStorage(false);
 void refreshCsvTemplates();
+
+function activateExportTab(tab: 'csv' | 'xml'): void {
+  const csvActive = tab === 'csv';
+  csvExportTab.classList.toggle('active', csvActive);
+  xmlExportTab.classList.toggle('active', !csvActive);
+  csvExportTab.setAttribute('aria-selected', String(csvActive));
+  xmlExportTab.setAttribute('aria-selected', String(!csvActive));
+  csvExportPanel.classList.toggle('active', csvActive);
+  xmlExportPanel.classList.toggle('active', !csvActive);
+  csvExportPanel.hidden = !csvActive;
+  xmlExportPanel.hidden = csvActive;
+}
+
+csvExportTab.addEventListener('click', () => activateExportTab('csv'));
+xmlExportTab.addEventListener('click', () => activateExportTab('xml'));
 
 uploadBtn.addEventListener('click', () => fileInput.click());
 dropArea.addEventListener('click', (event) => {
@@ -435,6 +480,10 @@ clearSettingsBtn.addEventListener('click', () => {
   settingsMessage.textContent = 'Impostazioni cancellate dal browser.';
 });
 
+xmlProfileSelect.addEventListener('change', () => {
+  updateXmlProfileHelp();
+});
+
 closeCelebrationModalBtn.addEventListener('click', hideDownloadCelebration);
 downloadCelebrationModal.addEventListener('click', (event) => {
   if (event.target === downloadCelebrationModal) hideDownloadCelebration();
@@ -516,8 +565,9 @@ downloadPaymentsCsvBtn.addEventListener('click', () => {
 downloadPainBtn.addEventListener('click', () => {
   const config = getPainConfig();
   if (!config) return;
-  downloadBlob(textBlob(generatePain001(config, payments), 'application/xml;charset=utf-8'), 'pain001.xml');
-  showDownloadCelebration('PAIN.001 generato: dalla busta paga al flusso banca, sempre in locale.');
+  const profile = getPaymentXmlProfile(config.profileId);
+  downloadBlob(textBlob(generatePaymentXml(config, payments), 'application/xml;charset=utf-8'), profile.fileName);
+  showDownloadCelebration(`${profile.label} generato: dalla busta paga al flusso banca, sempre in locale.`);
 });
 
 function getElement<T extends HTMLElement>(id: string): T {
@@ -934,9 +984,29 @@ function renderPayments(): void {
   downloadPainBtn.disabled = payments.length === 0;
 }
 
+
+function initialiseXmlProfileOptions(): void {
+  xmlProfileSelect.innerHTML = PAYMENT_XML_PROFILES.map((profile) => `
+    <option value="${profile.id}">${escapeHtml(profile.label)}</option>
+  `).join('');
+}
+
+function selectedXmlProfileId(): PaymentXmlProfileId {
+  const id = xmlProfileSelect.value as PaymentXmlProfileId;
+  return PAYMENT_XML_PROFILES.some((profile) => profile.id === id) ? id : 'pain001-v3';
+}
+
+function updateXmlProfileHelp(): void {
+  const profile = getPaymentXmlProfile(selectedXmlProfileId());
+  const cbiNote = profile.cbi
+    ? ' Profilo CBI: compila CUC/codice cliente e/o ABI se richiesto dalla tua banca.'
+    : '';
+  settingsMessage.textContent = `Formato XML selezionato: ${profile.label}.${cbiNote}`;
+}
+
 function getPainConfig(): Pain001DebtorConfig | null {
   if (!debtorName.value.trim() || !debtorIban.value.trim() || !executionDate.value) {
-    paymentMessages.innerHTML = '<p class="error">Completa nome ordinante, IBAN ordinante e data esecuzione per generare PAIN.001.</p>';
+    paymentMessages.innerHTML = '<p class="error">Completa nome ordinante, IBAN ordinante e data esecuzione per generare il file XML pagamenti.</p>';
     return null;
   }
   if (!isValidIban(debtorIban.value)) {
@@ -947,9 +1017,12 @@ function getPainConfig(): Pain001DebtorConfig | null {
     debtorName: debtorName.value.trim(),
     debtorIban: debtorIban.value.trim(),
     debtorBic: debtorBic.value.trim() || undefined,
+    debtorAbi: debtorAbi.value.trim() || undefined,
+    debtorCuc: debtorCuc.value.trim() || undefined,
     messageId: messageId.value.trim() || defaultMessageId(),
     paymentInfoId: paymentInfoId.value.trim() || `${defaultMessageId()}-PMT`,
     requestedExecutionDate: executionDate.value,
+    profileId: selectedXmlProfileId(),
   };
 }
 
@@ -961,6 +1034,7 @@ function initialiseDefaults(): void {
   messageId.value = defaultMessageId();
   paymentInfoId.value = `${messageId.value}-PMT`;
   loadPaymentSettings();
+  updateXmlProfileHelp();
 }
 
 function collectPaymentSettings(): PaymentSettings {
@@ -968,8 +1042,11 @@ function collectPaymentSettings(): PaymentSettings {
     debtorName: debtorName.value.trim(),
     debtorIban: debtorIban.value.trim(),
     debtorBic: debtorBic.value.trim(),
+    debtorAbi: debtorAbi.value.trim(),
+    debtorCuc: debtorCuc.value.trim(),
     remittanceTemplate: remittanceTemplate.value.trim() || 'Stipendio {period}',
     selectedCsvTemplateId: csvTemplateSelect.value || undefined,
+    selectedXmlProfileId: selectedXmlProfileId(),
   };
 }
 
@@ -977,9 +1054,13 @@ function applyPaymentSettings(settings: PaymentSettings): void {
   debtorName.value = settings.debtorName ?? '';
   debtorIban.value = settings.debtorIban ?? '';
   debtorBic.value = settings.debtorBic ?? '';
+  debtorAbi.value = settings.debtorAbi ?? '';
+  debtorCuc.value = settings.debtorCuc ?? '';
   remittanceTemplate.value = settings.remittanceTemplate || 'Stipendio {period}';
   if (settings.selectedCsvTemplateId) csvTemplateSelect.value = settings.selectedCsvTemplateId;
+  if (settings.selectedXmlProfileId) xmlProfileSelect.value = settings.selectedXmlProfileId;
   renderCsvTemplateDetails();
+  updateXmlProfileHelp();
 }
 
 function savePaymentSettings(): void {

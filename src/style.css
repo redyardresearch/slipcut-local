@@ -8,6 +8,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --red: #ff0000;
+  --accent: #ff0000;
   --red-dark: #9f0404;
   --border: #eeeeee;
   --muted: #666;
@@ -612,4 +613,154 @@ footer {
 
 body.modal-open {
   overflow: hidden;
+}
+
+/* Harmonized CSV/XML export format area */
+button, input, select, textarea {
+  font: inherit;
+}
+
+select,
+.field-group input:not([type="file"]),
+.debtor-grid input,
+.format-row select,
+.template-row select {
+  min-height: 48px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 0.75rem 2.5rem 0.75rem 0.9rem;
+  color: #222;
+  background-color: #fff;
+  box-shadow: none;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #333 50%), linear-gradient(135deg, #333 50%, transparent 50%);
+  background-position: calc(100% - 18px) 52%, calc(100% - 12px) 52%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+select:focus,
+input:focus,
+textarea:focus {
+  outline: 2px solid rgba(255, 0, 0, 0.18);
+  border-color: var(--accent);
+}
+
+.export-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  margin-top: 1rem;
+  background: #fff;
+}
+
+.export-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.export-card-header h3 {
+  margin: 0 0 0.25rem;
+  color: #111;
+}
+
+ .export-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  padding: 0.3rem;
+  border: 1px solid #e8e8e8;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 18px rgba(0, 0, 0, 0.04);
+}
+
+.export-tab {
+  min-width: 5.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #222;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.72rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.export-tab:hover {
+  background: #fff2f2;
+  color: var(--red);
+}
+
+.export-tab.active,
+.export-tab[aria-selected="true"] {
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(255, 0, 0, 0.18);
+}
+
+.export-tab.active:hover,
+.export-tab[aria-selected="true"]:hover {
+  background: var(--red);
+  color: #fff;
+}
+
+.export-tab:focus-visible {
+  outline: 3px solid rgba(255, 0, 0, 0.18);
+  outline-offset: 2px;
+}
+
+.export-panel {
+  display: none;
+}
+
+.export-panel.active {
+  display: block;
+}
+
+.format-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+  background: #fff;
+}
+
+.format-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 2fr);
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.format-row label {
+  font-weight: 700;
+  color: #111;
+}
+
+@media (max-width: 800px) {
+  .export-card-header,
+  .format-row,
+  .template-row {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .export-tabs {
+    width: 100%;
+  }
+
+  .export-tab {
+    flex: 1;
+  }
 }

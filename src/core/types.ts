@@ -30,19 +30,27 @@ export interface PaymentRow {
   sourcePage: number;
 }
 
+export type PaymentXmlProfileId = 'pain001-v3' | 'pain001-v9' | 'cbi-pain001-v9';
+
 export interface Pain001DebtorConfig {
   debtorName: string;
   debtorIban: string;
   debtorBic?: string;
+  debtorAbi?: string;
+  debtorCuc?: string;
   messageId: string;
   paymentInfoId: string;
   requestedExecutionDate: string;
+  profileId: PaymentXmlProfileId;
 }
 
 export interface PaymentSettings {
   debtorName: string;
   debtorIban: string;
   debtorBic: string;
+  debtorAbi: string;
+  debtorCuc: string;
   remittanceTemplate: string;
   selectedCsvTemplateId?: string;
+  selectedXmlProfileId?: PaymentXmlProfileId;
 }

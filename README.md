@@ -1,4 +1,4 @@
-# SlipCut Local v0.1.0
+# SlipCut Local v0.1.1
 
 This archive contains the SlipCut Local Vite + TypeScript app with:
 
@@ -103,13 +103,13 @@ If there is a problem, please open an issue on GitHub. If you like SlipCut Local
 Build the production image:
 
 ```bash
-docker build -t slipcut-local:0.1.0 .
+docker build -t slipcut-local .
 ```
 
 Run it locally:
 
 ```bash
-docker run --rm -p 8080:80 slipcut-local:0.1.0
+docker run --rm -p 8080:80 slipcut-local
 ```
 
 Then open:
@@ -145,7 +145,7 @@ Mount a custom config over the default path:
 ```bash
 docker run --rm -p 8080:80 \
   -v ./export-templates.json:/usr/share/nginx/html/config/export-templates.json:ro \
-  slipcut-local:0.1.0
+  slipcut-local
 ```
 
 ### Template column schema
@@ -187,6 +187,27 @@ Use `decimal-comma` in a template column like this:
 ```json
 { "header": "Importo", "source": "amount", "format": "decimal-comma" }
 ```
+
+## XML payment profiles
+
+SlipCut Local can export payment XML using multiple profiles:
+
+- **PAIN.001 generico v3**: existing `pain.001.001.03` style export.
+- **PAIN.001 generico v9**: `pain.001.001.09` export with the newer namespace and structured execution date.
+- **CBI Italia SCT v00.04.01 / pain.001.001.09**: CBI-oriented Italian SEPA credit transfer profile layered on the v9 generator.
+
+For the CBI profile, fill CUC/codice cliente and/or ABI only when your bank requires them. CBI/bank portals may apply additional validation rules beyond the base XML schema, so generated files should be validated with the target bank before production use.
+
+
+## Version history
+
+### 0.1.1
+- Added CBI and PAIN.001 v9, refactored XML generation
+
+### 0.1.0
+- Inital version
+
+
 
 ## License
 
